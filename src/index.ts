@@ -18,7 +18,9 @@ import { getRandomPrompt } from "./gameLogic";
 
 const app = express();
 
-app.use(cors({ origin: "http://localhost:3000" }));
+const CORS_ORIGIN = process.env.CORS_ORIGIN ?? "http://localhost:3000";
+
+app.use(cors({ origin: CORS_ORIGIN }));
 app.use(express.json());
 
 // Health check endpoint
@@ -32,7 +34,7 @@ const httpServer = http.createServer(app);
 
 const io = new Server(httpServer, {
   cors: {
-    origin: "http://localhost:3000",
+    origin: CORS_ORIGIN,
     methods: ["GET", "POST"],
   },
 });
@@ -44,7 +46,11 @@ function emitError(socket: Socket, message: string) {
 }
 
 function isValidName(name: unknown): name is string {
-  return typeof name === "string" && name.trim().length > 0 && name.trim().length <= 20;
+  return (
+    typeof name === "string" &&
+    name.trim().length > 0 &&
+    name.trim().length <= 20
+  );
 }
 
 function isValidCode(code: unknown): code is string {
@@ -96,7 +102,10 @@ io.on("connection", (socket: Socket) => {
 
       const { room, error } = joinRoom(code, socket.id, name);
       if (!room) {
-        return emitError(socket, error ?? "Room not found / full / already started");
+        return emitError(
+          socket,
+          error ?? "Room not found / full / already started",
+        );
       }
 
       socket.join(room.code);
@@ -123,9 +132,12 @@ io.on("connection", (socket: Socket) => {
       const room = getRoom(code);
 
       if (!room) return emitError(socket, "Room not found");
-      if (room.hostId !== socket.id) return emitError(socket, "Only the host can start the game");
-      if (room.players.size < 2) return emitError(socket, "Need at least 2 players to start");
-      if (room.status !== "waiting") return emitError(socket, "Game already started");
+      if (room.hostId !== socket.id)
+        return emitError(socket, "Only the host can start the game");
+      if (room.players.size < 2)
+        return emitError(socket, "Need at least 2 players to start");
+      if (room.status !== "waiting")
+        return emitError(socket, "Game already started");
 
       // Begin countdown
       room.status = "countdown";
@@ -182,8 +194,16 @@ io.on("connection", (socket: Socket) => {
   // ── 4. progress_update ──────────────────────────────────────────────────────
   socket.on("progress_update", (payload: unknown) => {
     try {
-      const data = payload as { code?: unknown; progress?: unknown; wpm?: unknown };
-      if (!isValidCode(data?.code) || typeof data?.progress !== "number" || typeof data?.wpm !== "number") {
+      const data = payload as {
+        code?: unknown;
+        progress?: unknown;
+        wpm?: unknown;
+      };
+      if (
+        !isValidCode(data?.code) ||
+        typeof data?.progress !== "number" ||
+        typeof data?.wpm !== "number"
+      ) {
         return emitError(socket, "Invalid request");
       }
 
@@ -227,12 +247,16 @@ io.on("connection", (socket: Socket) => {
       player.wpm = Math.max(0, data.wpm as number);
       player.progress = 100;
 
-      console.log(`[Room ${code}] Player "${player.name}" finished at ${player.wpm} WPM`);
+      console.log(
+        `[Room ${code}] Player "${player.name}" finished at ${player.wpm} WPM`,
+      );
 
       io.to(code).emit("player_progress", { players: serializePlayers(room) });
 
       // Check if ALL players finished
-      const allFinished = Array.from(room.players.values()).every((p) => p.finished);
+      const allFinished = Array.from(room.players.values()).every(
+        (p) => p.finished,
+      );
       if (allFinished) {
         clearTimeout(room.gameTimer);
         room.status = "finished";
@@ -319,7 +343,9 @@ function handlePlayerLeave(socket: Socket) {
     });
 
     io.to(code).emit("game_finished", { players: serializePlayers(room) });
-    console.log(`[Room ${code}] Game ended — a player disconnected during play`);
+    console.log(
+      `[Room ${code}] Game ended — a player disconnected during play`,
+    );
     return;
   }
 
@@ -335,7 +361,7 @@ function handlePlayerLeave(socket: Socket) {
 
 // ─── Start server ─────────────────────────────────────────────────────────────
 
-const PORT = 3001;
+const PORT = 3102;
 httpServer.listen(PORT, () => {
   console.log(`✅  VersusTyping backend running on http://localhost:${PORT}`);
 });
