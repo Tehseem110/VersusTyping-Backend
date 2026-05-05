@@ -81,7 +81,7 @@ export function joinRoom(
 ): { room: Room | null; error?: string } {
   const room = rooms.get(code);
   if (!room) return { room: null, error: "Room not found" };
-  if (room.players.size >= 2) return { room: null, error: "Room is full" };
+  if (room.players.size >= 4) return { room: null, error: "Room is full" };
   if (room.status !== "waiting") return { room: null, error: "Game already in progress" };
 
   const player: Player = {

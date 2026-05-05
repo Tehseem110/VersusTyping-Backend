@@ -329,23 +329,33 @@ function handlePlayerLeave(socket: Socket) {
     return;
   }
 
-  // Someone left during "playing" → remaining player wins
+  // Someone left during "playing"
   if (statusBefore === "playing") {
-    clearTimeout(room.gameTimer);
-    room.status = "finished";
+    // Notify remaining players of the updated list
+    io.to(code).emit("player_progress", { players: serializePlayers(room) });
 
-    // Mark remaining players as winner
-    room.players.forEach((p) => {
-      if (!p.finished) {
-        p.finished = true;
-        p.finishedAt = Date.now();
-      }
-    });
+    // Only end the game if just 1 player is left
+    if (room.players.size <= 1) {
+      clearTimeout(room.gameTimer);
+      room.status = "finished";
 
-    io.to(code).emit("game_finished", { players: serializePlayers(room) });
-    console.log(
-      `[Room ${code}] Game ended — a player disconnected during play`,
-    );
+      // Mark the sole remaining player as finished (winner)
+      room.players.forEach((p) => {
+        if (!p.finished) {
+          p.finished = true;
+          p.finishedAt = Date.now();
+        }
+      });
+
+      io.to(code).emit("game_finished", { players: serializePlayers(room) });
+      console.log(
+        `[Room ${code}] Game ended — only 1 player remaining after disconnect`,
+      );
+    } else {
+      console.log(
+        `[Room ${code}] A player disconnected during play; ${room.players.size} players remain`,
+      );
+    }
     return;
   }
 
